@@ -11,12 +11,13 @@ module.exports = (Sequelize, config) => {
     const Fleet = require('../models/fleets')(Sequelize, sequelize);
     const Motion = require('../models/motions')(Sequelize, sequelize);
     const Vehicle = require('../models/vehicles')(Sequelize, sequelize);
+    const Auth = require('../models/managers')(Sequelize, sequelize);
 
     Vehicle.hasMany(Fleet, {foreignKey: 'fleetId', sourceKey: 'id'});
     Motion.hasMany(Vehicle, {foreignKey: 'vehicleId', sourceKey: 'id'});
 
     return {
-        Fleet, Motion, Vehicle,
+        Fleet, Motion, Vehicle, Auth
         sequelize: sequelize,
         Sequelize: Sequelize,
     };

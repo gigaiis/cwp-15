@@ -7,5 +7,6 @@ const motionsRouter = require('./motions');
 router.use('/fleets', fleetsRouter);
 router.use('/vehicles', vehiclesRouter);
 router.use('/motions', motionsRouter);
+router.use('/auth', authRouter);
 
 module.exports = router;
