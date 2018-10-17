@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bodyParser = require('body-parser');
-const db = require('../db/db');
+const db = require('./db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonjwt');
 router.use(bodyParser.json());
