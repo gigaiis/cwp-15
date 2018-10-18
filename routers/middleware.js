@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const db = require('./db');
 
 router.all('/*', async (req, res, next) => {
+    console.log('Auth...');
     let h;
     if (h = req.header('Authorization')) {
         let _h = h.split(' ');
@@ -12,17 +13,18 @@ router.all('/*', async (req, res, next) => {
             let token = _h[1];
             console.log(`token = ${token}`);
             jwt.verify(token, 'secret', async (err, dec) => {
-                if (!err) {
-                    (await db.Auth.findById(dec.id))
-                    .then((itm) => {
+                if (!err) { await db.Auth.findById(dec.id).then((itm) => {
                         if (itm !== undefined) req.manager = itm.get({raw: true});
                         else res.status(403).send('403');
                     });
                     next();
                 }
-                else res.status(403).send('403: verify');
+                else {
+                    resp.statusCode = 403;
+                    next();
+                }
             });
-        }
+        } else res.status(401).send('401: Error');
     }
     else res.status(401).send('401: Authorization');
 })

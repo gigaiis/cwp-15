@@ -7,10 +7,12 @@ const geolib = require('geolib');
 router.use(bodyParser.json());
 
 router.get('/readall', (req, resp, next) => {
-	if (!req.query.fleetId) resp.json({'error': '\"fleetId\" arg not found'});
+    if (req.manager.super) db.Vehicle.findAll().then((res) => {
+        resp.json(res);
+    });
 	else db.Vehicle.findAll({
 		where: {
-            fleetId: req.query.fleetId,
+            fleetId: req.manager.fleetId,
             deletedAt: null
         }
     }).then((res) => {
@@ -24,8 +26,21 @@ router.get('/readall', (req, resp, next) => {
 
 router.get('/read', (req, resp, next) => {
 	if (!req.query.id) resp.json({'error': '\"id\" arg not found'});
-	else db.Vehicle.findById(req.query.id).then((res) => {
+	else if (req.manager.super) db.Vehicle.findById(req.query.id).then((res) => {
         if ((!res) || (res.deletedAt !== null)) {
+            resp.statusCode = 404;
+            next();
+        }
+        else resp.json(res);
+    });
+    else db.Vehicle.findAll({
+        where: {
+            id: id,
+            fleetId: req.manager.fleetId,
+            deletedAt: null
+        },
+    }).then((res) => {
+        if (!res.length) {
             resp.statusCode = 404;
             next();
         }
@@ -34,6 +49,7 @@ router.get('/read', (req, resp, next) => {
 });
 
 router.post('/create', (req, resp, next) => {
+    if (!req.manager.super) req.body.fleetId = req.manager.fleetId;
 	req = req.body;
 	if (!req.name) resp.json({'error': '\"name\" arg not found'});
 	else if (!req.fleetId) resp.json({'error': '\"fleetId\" arg not found'});
@@ -49,6 +65,7 @@ router.post('/create', (req, resp, next) => {
 });
 
 router.post('/update', (req, resp, next) => {
+    if(!req.manager.super) req.body.fleetId = req.manager.fleetId;
 	req = req.body;
     if (!req.id) resp.json({'error': '\"id\" arg not found'});
     else if (!req.name) resp.json({'error': '\"name\" arg not found'});
@@ -71,6 +88,7 @@ router.post('/update', (req, resp, next) => {
 });
 
 router.post('/delete', (req, resp, next) => {
+    if(!req.manager.super) req.body.fleetId = req.manager.fleetId;
 	req = req.body;
     if (!req.id) resp.json({'error': '\"id\" arg not found'});
     else db.Vehicle.findById(req.id).then((res) => {
@@ -89,53 +107,82 @@ router.post('/delete', (req, resp, next) => {
     });
 });
 
-router.get('/milage', (req, resp, next) => {
+router.get('/milage', async (req, resp, next) => {
 	if (!req.query.id) resp.json({'error': '\"id\" arg not found'});
-	else db.Vehicle.findById(req.query.id).then((res) => {
-    	if ((!res) || (res.deletedAt !== null)) {
+	else if(req.manager.super) {
+        db.Vehicle.findById(req.query.id).then((res) => {
+            if ((!res) || (res.deletedAt !== null)) {
+                resp.statusCode = 404;
+                next();
+            }
+            else {
+                let coords = [];
+                let coordstime = [];
+                db.Motion.findAll({
+                    where: {
+                        vehicleId: req.query.id
+                    }
+                }).then((res) => {
+                    res.forEach((motion) => {
+                        coords.push(motion.latLng);
+                        coordstime.push(motion.latLngTime);
+                    });
+                    let len = 0;
+                    let spd = 0;
+                    if (coords.length < 2) resp.json(len);
+                    for (var i = 0; i < coords.length - 1; i++) {
+                        len += geolib.getDistance(coords[i], coords[i+1]);
+                        spd += geolib.getSpeed(coordstime[i], coordstime[i+1], {unit: 'mph'});
+                    }
+                    resp.json({
+                        'getDistance': len,
+                        'getPathLength': (coords.length < 2) ? 0 : geolib.getPathLength(coords),
+                        'AVGgetSpeed': Math.round(spd / (coordstime.length - 1))
+                    });
+                });
+            }
+        });
+    } else {
+        let result = await db.Vehicle.findAll({
+            where:{
+                id: req.query.id,
+                fleetId: req.manager.fleetId
+            }
+        });
+        if (result.length > 0) {
+            let coords = [];
+            let coordstime = [];
+            db.Motion.findAll({
+                where: {
+                    vehicleId: req.query.id
+                }
+            }).then((res) => {
+                res.forEach((motion) => {
+                    coords.push(motion.latLng);
+                    coordstime.push(motion.latLngTime);
+                });
+                let len = 0;
+                let spd = 0;
+                if (coords.length < 2) resp.json(len);
+                for (var i = 0; i < coords.length - 1; i++) {
+                    len += geolib.getDistance(coords[i], coords[i+1]);
+                    spd += geolib.getSpeed(coordstime[i], coordstime[i+1], {unit: 'mph'});
+                }
+                resp.json({
+                    'getDistance': len,
+                    'getPathLength': (coords.length < 2) ? 0 : geolib.getPathLength(coords),
+                    'AVGgetSpeed': Math.round(spd / (coordstime.length - 1))
+                });
+            });
+        }    
+        else {
             resp.statusCode = 404;
             next();
         }
-        else {
-        	let coords = [];
-        	let coordstime = [];
-	        db.Motion.findAll({
-	            where: {
-	                vehicleId: req.query.id
-	            }
-	        }).then((res) => {
-	        	res.forEach((motion) => {
-	            	coords.push(motion.latLng);
-	            	coordstime.push(motion.latLngTime);
-		        });
-
-	        	// getDistance
-	        	// getSpeed
-		        let len = 0;
-		        let spd = 0;
-		        if (coords.length < 2) resp.json(len);
-		        for (var i = 0; i < coords.length - 1; i++) {
-		        	len += geolib.getDistance(coords[i], coords[i+1]);
-		        	spd += geolib.getSpeed(coordstime[i], coordstime[i+1], {unit: 'mph'});
-		        }
-
-		        // getPathLength
-		        resp.json({
-		        	'getDistance': len,
-		        	'getPathLength': (coords.length < 2) ? 0 : geolib.getPathLength(coords),
-		        	'AVGgetSpeed': Math.round(spd / (coordstime.length - 1))
-		        });
+    }
 
 
-		        // *
-		        //geolib.getSpeed(
-				//    {lat: 51.567294, lng: 7.38896, time: 1360231200880},
-				//    {lat: 52.54944, lng: 13.468509, time: 1360245600880},
-				//    {unit: 'mph'}
-				//); // -> 66.9408 (mph)
-	        });
-	    }
-	});
+    
 });
 
 module.exports = router;

@@ -3,18 +3,18 @@ const router = express.Router();
 const bodyParser = require('body-parser');
 const db = require('./db');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonjwt');
+const jwt = require('jsonwebtoken');
 router.use(bodyParser.json());
 
 router.post('/register', async (req, res, next) => {
     req = req.body;
     req.password = bcrypt.hashSync(req.password);
-    (await db.Auth.create(req))
+    await db.Auth.create(req)
     .then(() => {
         res.end('Registration is succesfull');
     })
     .catch(() => {
-        res.status(501).end('Error registration');
+        registration.status(501).end('Error registration');
     });
 });
 

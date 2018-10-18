@@ -17,7 +17,7 @@ module.exports = (Sequelize, config) => {
     Motion.hasMany(Vehicle, {foreignKey: 'vehicleId', sourceKey: 'id'});
 
     return {
-        Fleet, Motion, Vehicle, Auth
+        Fleet, Motion, Vehicle, Auth,
         sequelize: sequelize,
         Sequelize: Sequelize,
     };
